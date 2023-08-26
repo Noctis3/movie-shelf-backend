@@ -1,34 +1,26 @@
 import { Request, Response } from 'express';
 import { openai } from '../services/openai';
-
-import database from '../database/connection';
+import { getPrompt } from '../utils/prompt';
+import { ChatCompletionRequestMessage } from 'openai';
 
 export default class MoviesController {
   async getRecommendedMovies(request: Request, response: Response) {
     try {
+      // Add support to receive language as a parameter
+      const language = request.body.language;
+
+      if (language !== 'en' && language !== 'es' && language !== 'pt') {
+        return response.status(400).json({
+          error: 'Language not supported',
+        });
+      }
+
       const chatCompletion = await openai.createChatCompletion({
         model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content:
-              'Você irá atuar recomendando filmes a partir de uma lista de filmes favoritos e retornar uma lista com 5 filmes recomendados a partir das preferências demonstradas na lista. Não repita filmes que foram mencionados no input. Responda em formato JSON.',
-          },
-          {
-            role: 'user',
-            content:
-              "['Kill Bill: Volume 1', 'Kill Bill: Volume 2', 'Cães de Aluguel', 'Pulp Fiction', 'A Origem']",
-          },
-          {
-            role: 'assistant',
-            content:
-              '[{"title": "Django Livre", "genre": "action"}, {"title": "Bastardos Inglórios", "genre": "action"}]',
-          },
-          {
-            role: 'user',
-            content: request.body.movies,
-          },
-        ],
+        messages: getPrompt(
+          String(language),
+          request.body.movies
+        ) as ChatCompletionRequestMessage[],
       });
 
       return response.json(
